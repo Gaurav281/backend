@@ -69,6 +69,13 @@ app.get('/api/health', (req, res) => {
     node: process.version,
   });
 });
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: '5StarClip Backend is running 🚀'
+  });
+});
+
 
 /* -------------------- ERRORS -------------------- */
 app.use(notFound);
