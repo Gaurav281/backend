@@ -15,7 +15,7 @@ const sendContactMessage = async (req, res) => {
     }
     
     // Send email to admin
-    const adminEmail = process.env.EMAIL_USER;
+    const adminEmail = process.env.EMAIL_FROM;
     const emailHtml = `
       <h2>New Contact Message</h2>
       <p><strong>Name:</strong> ${name}</p>

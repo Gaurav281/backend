@@ -1,92 +1,150 @@
-const nodemailer = require('nodemailer');
-const fs = require('fs').promises;
-const path = require('path');
+const axios = require('axios');
 
 class EmailService {
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
+    this.apiKey = process.env.BREVO_API_KEY;
+    this.senderEmail = process.env.EMAIL_FROM;
+    this.senderName = process.env.APP_NAME || '5 Star Clips';
+
+    this.client = axios.create({
+      baseURL: 'https://api.brevo.com/v3',
+      headers: {
+        'api-key': this.apiKey,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
     });
   }
 
   async sendEmail(to, subject, html) {
     try {
-      const mailOptions = {
-        from: `"${process.env.APP_NAME}" <${process.env.EMAIL_USER}>`,
-        to,
+      const payload = {
+        sender: {
+          email: this.senderEmail,
+          name: this.senderName
+        },
+        to: [{ email: to }],
         subject,
-        html
+        htmlContent: html
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
-      // console.log('Email sent:', info.messageId);
+      await this.client.post('/smtp/email', payload);
       return true;
     } catch (error) {
-      console.error('Email sending failed:', error);
+      console.error(
+        'Email sending failed (Brevo):',
+        error.response?.data || error.message
+      );
       return false;
     }
   }
 
+  /* ================= PUBLIC METHODS ================= */
+
   async sendOTPEmail(email, name, otp) {
-    const subject = 'Verify Your Email - 5 Start Clips';
-    const html = await this.generateOTPEmailTemplate(email, name, otp);
-    
-    return await this.sendEmail(email, subject, html);
+    const subject = `Verify Your Email – ${this.senderName}`;
+    const html = this.generateOTPEmailTemplate(email, name, otp);
+    return this.sendEmail(email, subject, html);
   }
 
   async sendPaymentStatusEmail(email, name, serviceName, status, transactionId) {
-    const subject = `Payment ${status} - 5 Start Clips`;
-    const html = await this.generatePaymentStatusEmailTemplate(name, serviceName, status, transactionId);
-    
-    return await this.sendEmail(email, subject, html);
+    const subject = `Payment ${status.toUpperCase()} – ${this.senderName}`;
+    const html = this.generatePaymentStatusEmailTemplate(
+      name,
+      serviceName,
+      status,
+      transactionId
+    );
+    return this.sendEmail(email, subject, html);
   }
 
   async sendServiceEnrollmentEmail(email, name, serviceName, startDate, endDate) {
-    const subject = `Service Enrolled - ${serviceName}`;
-    const html = await this.generateServiceEnrollmentEmailTemplate(name, serviceName, startDate, endDate);
-    
-    return await this.sendEmail(email, subject, html);
+    const subject = `Service Enrolled – ${serviceName}`;
+    const html = this.generateServiceEnrollmentEmailTemplate(
+      name,
+      serviceName,
+      startDate,
+      endDate
+    );
+    return this.sendEmail(email, subject, html);
   }
 
-  async generateOTPEmailTemplate(email, name, otp) {
+  /* ================= EMAIL LAYOUT ================= */
+
+  baseTemplate(content) {
     return `
       <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="UTF-8" />
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; border-radius: 10px 10px 0 0; }
-          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-          .otp-code { background: #fff; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #667eea; border-radius: 5px; margin: 20px 0; border: 2px dashed #667eea; }
-          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+          body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f8;
+            font-family: Arial, Helvetica, sans-serif;
+          }
+          .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+          }
+          .header {
+            background: linear-gradient(135deg, #6366f1, #7c3aed);
+            padding: 24px;
+            text-align: center;
+            color: #ffffff;
+          }
+          .content {
+            padding: 30px;
+            color: #333333;
+            line-height: 1.6;
+          }
+          .footer {
+            background: #f1f5f9;
+            text-align: center;
+            padding: 16px;
+            font-size: 12px;
+            color: #6b7280;
+          }
+          .button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: #6366f1;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+          }
+          .code-box {
+            background: #f9fafb;
+            border: 2px dashed #6366f1;
+            padding: 16px;
+            text-align: center;
+            font-size: 28px;
+            letter-spacing: 6px;
+            font-weight: bold;
+            color: #6366f1;
+            margin: 20px 0;
+            border-radius: 6px;
+          }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>5 Start Clips</h1>
+            <h1>${this.senderName}</h1>
           </div>
           <div class="content">
-            <h2>Hi ${name},</h2>
-            <p>Thank you for registering with 5 Start Clips. Please use the OTP below to verify your email address:</p>
-            
-            <div class="otp-code">${otp}</div>
-            
-            <p>This OTP will expire in 10 minutes.</p>
-            <p>If you didn't create an account with us, please ignore this email.</p>
-            
-            <p>Best regards,<br>The 5 Start Clips Team</p>
+            ${content}
           </div>
           <div class="footer">
-            <p>© ${new Date().getFullYear()} 5 Start Clips. All rights reserved.</p>
-            <p>This email was sent to ${email}</p>
+            © ${new Date().getFullYear()} ${this.senderName}. All rights reserved.<br/>
+            This is an automated email. Please do not reply.
           </div>
         </div>
       </body>
@@ -94,101 +152,77 @@ class EmailService {
     `;
   }
 
-  async generatePaymentStatusEmailTemplate(name, serviceName, status, transactionId) {
-    const statusColors = {
-      approved: '#10b981',
-      rejected: '#ef4444',
-      pending: '#f59e0b'
-    };
+  /* ================= TEMPLATES ================= */
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; border-radius: 10px 10px 0 0; }
-          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-          .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; color: white; font-weight: bold; margin: 10px 0; }
-          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>5 Start Clips</h1>
-          </div>
-          <div class="content">
-            <h2>Hi ${name},</h2>
-            <p>Your payment for <strong>${serviceName}</strong> has been <span class="status-badge" style="background: ${statusColors[status]};">${status.toUpperCase()}</span></p>
-            
-            <div style="background: #fff; padding: 20px; border-radius: 5px; margin: 20px 0;">
-              <p><strong>Transaction ID:</strong> ${transactionId}</p>
-              <p><strong>Service:</strong> ${serviceName}</p>
-              <p><strong>Status:</strong> ${status}</p>
-              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-            </div>
-            
-            ${status === 'approved' ? '<p>Your service has been activated. You can now access it from your dashboard.</p>' : ''}
-            ${status === 'rejected' ? '<p>Please contact support if you believe this is an error.</p>' : ''}
-            
-            <p>You can view the status of all your payments in your dashboard.</p>
-            
-            <p>Best regards,<br>The 5 Start Clips Team</p>
-          </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} 5 Start Clips. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+  generateOTPEmailTemplate(email, name, otp) {
+    return this.baseTemplate(`
+      <h2>Hello ${name},</h2>
+      <p>Thank you for signing up with <strong>${this.senderName}</strong>.</p>
+      <p>Please use the following One-Time Password (OTP) to verify your email address:</p>
+
+      <div class="code-box">${otp}</div>
+
+      <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+      <p>If you did not request this verification, please ignore this email.</p>
+
+      <p>Best regards,<br/>
+      <strong>${this.senderName} Team</strong></p>
+    `);
   }
 
-  async generateServiceEnrollmentEmailTemplate(name, serviceName, startDate, endDate) {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; border-radius: 10px 10px 0 0; }
-          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-          .service-card { background: #fff; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea; }
-          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>5 Start Clips</h1>
-          </div>
-          <div class="content">
-            <h2>Congratulations ${name}!</h2>
-            <p>You have successfully enrolled in our service. Here are your service details:</p>
-            
-            <div class="service-card">
-              <h3>${serviceName}</h3>
-              <p><strong>Start Date:</strong> ${new Date(startDate).toLocaleDateString()}</p>
-              <p><strong>End Date:</strong> ${new Date(endDate).toLocaleDateString()}</p>
-              <p><strong>Status:</strong> Active</p>
-            </div>
-            
-            <p>You can now access your service from the dashboard. Our support team is available 24/7 to assist you.</p>
-            
-            <p>Thank you for choosing 5 Start Clips!</p>
-            
-            <p>Best regards,<br>The 5 Start Clips Team</p>
-          </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} 5 Start Clips. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+  generatePaymentStatusEmailTemplate(name, serviceName, status, transactionId) {
+    const statusColor =
+      status === 'approved' ? '#16a34a' :
+      status === 'rejected' ? '#dc2626' :
+      '#f59e0b';
+
+    return this.baseTemplate(`
+      <h2>Hello ${name},</h2>
+      <p>Your payment status for the service <strong>${serviceName}</strong> has been updated.</p>
+
+      <p>
+        <strong>Status:</strong>
+        <span style="color:${statusColor}; font-weight:bold;">
+          ${status.toUpperCase()}
+        </span>
+      </p>
+
+      <p><strong>Transaction ID:</strong> ${transactionId}</p>
+      <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+
+      ${
+        status === 'approved'
+          ? `<p>Your service is now active and available in your dashboard.</p>`
+          : ''
+      }
+
+      ${
+        status === 'rejected'
+          ? `<p>If you believe this is a mistake, please contact our support team.</p>`
+          : ''
+      }
+
+      <p>Thank you for choosing <strong>${this.senderName}</strong>.</p>
+    `);
+  }
+
+  generateServiceEnrollmentEmailTemplate(name, serviceName, startDate, endDate) {
+    return this.baseTemplate(`
+      <h2>Congratulations ${name} 🎉</h2>
+      <p>You have been successfully enrolled in the following service:</p>
+
+      <p><strong>Service:</strong> ${serviceName}</p>
+      <p><strong>Start Date:</strong> ${new Date(startDate).toDateString()}</p>
+      <p><strong>End Date:</strong> ${new Date(endDate).toDateString()}</p>
+      <p><strong>Status:</strong> Active</p>
+
+      <p>You can now access this service from your dashboard.</p>
+
+      <p>If you need any help, feel free to contact our support team.</p>
+
+      <p>Best wishes,<br/>
+      <strong>${this.senderName} Team</strong></p>
+    `);
   }
 }
 
