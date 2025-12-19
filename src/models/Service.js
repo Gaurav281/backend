@@ -45,7 +45,7 @@ const serviceSchema = new mongoose.Schema({
   },
   enrolledCount: {
     type: Number,
-    default: 0
+    default: () => Math.floor(Math.random() * (50 - 20 + 1)) + 20
   },
   meta: {
     views: {
