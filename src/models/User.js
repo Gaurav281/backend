@@ -1,3 +1,4 @@
+//backend/src/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -17,9 +18,18 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
   password: {
     type: String,
-    required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
   },
@@ -106,9 +116,11 @@ const userSchema = new mongoose.Schema({
 });
 
 // Encrypt password before saving
-userSchema.pre('save', async function() {
+userSchema.pre('save', async function () {
+  if (!this.password) return;
+
   if (!this.isModified('password')) return;
-  
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -118,28 +130,28 @@ userSchema.pre('save', async function() {
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function(enteredPassword) {
+userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Generate OTP
-userSchema.methods.generateOTP = function() {
+userSchema.methods.generateOTP = function () {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-  
+
   this.otp = otp;
   this.otpExpiry = otpExpiry;
-  
+
   return otp;
 };
 
 // Check if OTP is valid
-userSchema.methods.isValidOTP = function(otp) {
+userSchema.methods.isValidOTP = function (otp) {
   return this.otp === otp && this.otpExpiry > new Date();
 };
 
 // Check if installment is enabled for user
-userSchema.methods.canUseInstallment = function() {
+userSchema.methods.canUseInstallment = function () {
   return this.installmentSettings.enabled === true;
 };
 

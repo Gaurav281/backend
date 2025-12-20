@@ -1,3 +1,4 @@
+//backend/src/controllers/userController.js
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const { validationResult } = require('express-validator');
@@ -23,6 +24,7 @@ const getProfile = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      authProvider: user.authProvider || 'local',
       isVerified: user.isVerified !== false,
       isActive: user.isActive !== false,
       isSuspicious: user.isSuspicious === true, // Strict comparison

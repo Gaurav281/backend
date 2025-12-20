@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const authController = require('../controllers/authController');
+const { googleAuth } = require('../controllers/googleAuthController');
 const { protect } = require('../middleware/authMiddleware');
 
 // Validation middleware
@@ -24,6 +25,7 @@ router.post('/verify-otp', authController.verifyOTP);
 router.post('/login', loginValidation, authController.login);
 router.post('/forgot-password', authController.forgotPassword);
 router.put('/reset-password/:token', authController.resetPassword);
+router.post('/google', googleAuth);
 
 // Protected routes
 router.get('/me', protect, authController.getMe);

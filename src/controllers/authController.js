@@ -178,6 +178,7 @@ const verifyOTP = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        authProvider: user.authProvider || 'local',
         isVerified: user.isVerified,
         isActive: user.isActive !== false,
         isSuspicious: user.isSuspicious === true,
@@ -253,6 +254,7 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        authProvider: user.authProvider || 'local',
         isVerified: user.isVerified,
         isActive: user.isActive
       }
@@ -288,6 +290,7 @@ const getMe = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      authProvider: user.authProvider || 'local',
       isVerified: user.isVerified !== false,
       isActive: user.isActive !== false,
       isSuspicious: user.isSuspicious === true, // Strict comparison
