@@ -60,13 +60,13 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/contact', contactRoutes);
 
-/* -------------------- HEALTH CHECK -------------------- */
+
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
+  res.status(200).json({
+    status: "OK",
+    service: "5StarClip Backend",
     uptime: process.uptime(),
-    timestamp: Date.now(),
-    node: process.version,
+    timestamp: Date.now()
   });
 });
 app.get('/', (req, res) => {
